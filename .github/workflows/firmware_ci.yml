@@ -1,0 +1,63 @@
+name: Firmware CI & Automated Build
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  unit-tests:
+    name: Native Host Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build and Run Sensor Queue Unit Tests
+        run: |
+          echo "=== Compiling unit test harness ==="
+          gcc -Wall -Wextra -O2 tests/test_sensor_ringbuf.c -o test_ringbuf
+          echo "=== Executing test suite ==="
+          ./test_ringbuf
+
+  firmware-build:
+    name: Zephyr / nRF Connect SDK Build
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    container:
+      image: nordicsemi/nrfconnect-sdk:v2.6-branch
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          path: project
+
+      - name: Initialize West Workspace
+        run: |
+          cd project
+          west init -l app || true
+          west config --global --add update.narrow true
+
+      - name: Build Firmware Target (nRF52840-DK)
+        run: |
+          cd project
+          west build -b nrf52840dk_nrf52840 app -d build -- \
+            -DCONFIG_BOOTLOADER_MCUBOOT=y \
+            -DCONFIG_BT=y
+
+      - name: Verify Build Artifacts
+        run: |
+          ls -la project/build/zephyr/
+          test -f project/build/zephyr/zephyr.hex
+          test -f project/build/zephyr/zephyr.bin
+
+      - name: Upload Signed Binaries & Memory Map
+        uses: actions/upload-artifact@v4
+        with:
+          name: nrf52840-sensorhub-firmware
+          path: |
+            project/build/zephyr/zephyr.hex
+            project/build/zephyr/zephyr.bin
+            project/build/zephyr/zephyr.map
+          retention-days: 14
