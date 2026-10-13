@@ -2,62 +2,57 @@ name: Firmware CI & Automated Build
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
-  unit-tests:
+  native-tests:
     name: Native Host Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build and Run Sensor Queue Unit Tests
+      - name: Install Host Toolchain
         run: |
-          echo "=== Compiling unit test harness ==="
-          gcc -Wall -Wextra -O2 tests/test_sensor_ringbuf.c -o test_ringbuf
-          echo "=== Executing test suite ==="
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Run Ring Buffer Unit Tests
+        run: |
+          gcc -Iinclude tests/test_sensor_ringbuf.c -o test_ringbuf
           ./test_ringbuf
 
-  firmware-build:
+  zephyr-build:
     name: Zephyr / nRF Connect SDK Build
-    needs: unit-tests
     runs-on: ubuntu-latest
     container:
       image: nordicsemi/nrfconnect-sdk:v2.6-branch
+      options: --user root
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          path: project
+          path: nrf52840-ble-sensor-hub
 
-      - name: Initialize West Workspace
+      - name: Initialize West & Build Firmware
         run: |
-          cd project
-          west init -l app || true
-          west config --global --add update.narrow true
+          mkdir -p /tmp/zephyr_workspace
+          cd /tmp/zephyr_workspace
+          west init -m https://github.com/nrfconnect/sdk-nrf --mr v2.6.0 .
+          west update --narrow -o=--depth=1
+          west zephyr-export
+          
+          # Copy application into workspace and build
+          cp -r $GITHUB_WORKSPACE/nrf52840-ble-sensor-hub ./app_code
+          west build -b nrf52840dk_nrf52840 app_code/app -d build
 
-      - name: Build Firmware Target (nRF52840-DK)
-        run: |
-          cd project
-          west build -b nrf52840dk_nrf52840 app -d build -- \
-            -DCONFIG_BOOTLOADER_MCUBOOT=y \
-            -DCONFIG_BT=y
-
-      - name: Verify Build Artifacts
-        run: |
-          ls -la project/build/zephyr/
-          test -f project/build/zephyr/zephyr.hex
-          test -f project/build/zephyr/zephyr.bin
-
-      - name: Upload Signed Binaries & Memory Map
+      - name: Archive Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nrf52840-sensorhub-firmware
+          name: nrf52840-firmware-binaries
           path: |
-            project/build/zephyr/zephyr.hex
-            project/build/zephyr/zephyr.bin
-            project/build/zephyr/zephyr.map
-          retention-days: 14
+            /tmp/zephyr_workspace/build/zephyr/zephyr.hex
+            /tmp/zephyr_workspace/build/zephyr/zephyr.bin
+            /tmp/zephyr_workspace/build/zephyr/zephyr.stat

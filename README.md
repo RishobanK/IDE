@@ -40,13 +40,6 @@ graph TD
         end
     end
 
-    subgraph BLE_Subsystem [Bluetooth LE 5.2 GATT Profile]
-        GATT_SVC[Custom Service<br/>UUID: 4a980001-...]
-        CHRC_DATA[Telemetry Characteristic<br/>NOTIFY | READ<br/>UUID: 4a980002-...]
-        CHRC_CFG[Config Characteristic<br/>WRITE | READ<br/>UUID: 4a980003-...]
-        CHRC_STAT[Status Characteristic<br/>READ<br/>UUID: 4a980004-...]
-    end
-
     %% Flow connections
     BME280 -->|TWIM1 DMA| T1_Desc
     LSM6DSO -->|SPIM1 DMA| T1_Desc
