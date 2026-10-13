@@ -29,30 +29,23 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: nordicsemi/nrfconnect-sdk:v2.6-branch
-      options: --user root
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          path: nrf52840-ble-sensor-hub
 
-      - name: Initialize West & Build Firmware
+      - name: Configure Git Safe Directory & Build Firmware
         run: |
-          mkdir -p /tmp/zephyr_workspace
-          cd /tmp/zephyr_workspace
-          west init -m https://github.com/nrfconnect/sdk-nrf --mr v2.6.0 .
-          west update --narrow -o=--depth=1
-          west zephyr-export
+          # Resolve git ownership restriction inside docker container
+          git config --global --add safe.directory '*'
           
-          # Copy application into workspace and build
-          cp -r $GITHUB_WORKSPACE/nrf52840-ble-sensor-hub ./app_code
-          west build -b nrf52840dk_nrf52840 app_code/app -d build
+          # Build application using pre-installed nRF Connect SDK environment
+          west build -b nrf52840dk_nrf52840 app -d build
 
       - name: Archive Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: nrf52840-firmware-binaries
           path: |
-            /tmp/zephyr_workspace/build/zephyr/zephyr.hex
-            /tmp/zephyr_workspace/build/zephyr/zephyr.bin
-            /tmp/zephyr_workspace/build/zephyr/zephyr.stat
+            build/zephyr/zephyr.hex
+            build/zephyr/zephyr.bin
+            build/zephyr/zephyr.stat
