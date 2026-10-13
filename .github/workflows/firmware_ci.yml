@@ -33,13 +33,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure Git Safe Directory & Build Firmware
+      - name: Build nRF52840 Firmware
         run: |
-          # Resolve git ownership restriction inside docker container
           git config --global --add safe.directory '*'
           
-          # Build application using pre-installed nRF Connect SDK environment
-          west build -b nrf52840dk_nrf52840 app -d build
+          # Locate pre-installed NCS SDK workspace inside Docker container
+          NCS_DIR=$(find / -name ".west" 2>/dev/null | head -n 1 | xargs dirname)
+          
+          if [ -n "$NCS_DIR" ]; then
+            echo "Building within NCS workspace at: $NCS_DIR"
+            cd "$NCS_DIR"
+            west build -b nrf52840dk_nrf52840 -s "$GITHUB_WORKSPACE/app" -d "$GITHUB_WORKSPACE/build"
+          else
+            echo "Fallback: Building with CMake..."
+            cmake -B "$GITHUB_WORKSPACE/build" -S "$GITHUB_WORKSPACE/app" -GNinja -DBOARD=nrf52840dk_nrf52840
+            ninja -C "$GITHUB_WORKSPACE/build"
+          fi
 
       - name: Archive Firmware Artifacts
         uses: actions/upload-artifact@v4
