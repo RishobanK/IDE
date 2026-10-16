@@ -52,6 +52,10 @@ static void sensor_thread_entry(void *p1, void *p2, void *p3)
     LOG_INF("Sensor Acquisition Thread started [Priority %d]", SENSOR_THREAD_PRIORITY);
 
     while (1) {
+        /* Resume I2C and SPI buses for active sampling */
+        sensor_manager_resume_buses();
+
+        /* Perform 4 Hz sensor acquisition */
         sensor_reading_t sample;
         int rc = sensor_manager_sample_all(&sample);
         if (rc == 0) {
@@ -65,6 +69,9 @@ static void sensor_thread_entry(void *p1, void *p2, void *p3)
         } else {
             LOG_WRN("Sensor sample acquisition fault (rc=%d)", rc);
         }
+
+        /* Suspend buses to save power during idle period */
+        sensor_manager_suspend_buses();
 
         /* Sample period: 250 ms (4 Hz update rate) */
         k_msleep(250);

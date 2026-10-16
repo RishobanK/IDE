@@ -78,6 +78,18 @@ struct k_msgq *sensor_manager_get_msgq(void);
  */
 void sensor_manager_get_metrics(sensor_metrics_t *metrics);
 
+/**
+ * @brief Suspend I2C and SPI buses to save power between sampling intervals.
+ * @return 0 on success, negative error code on failure.
+ */
+int sensor_manager_suspend_buses(void);
+
+/**
+ * @brief Resume I2C and SPI buses for active sensor transactions.
+ * @return 0 on success, negative error code on failure.
+ */
+int sensor_manager_resume_buses(void);
+
 #ifdef __cplusplus
 }
 #endif

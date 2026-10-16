@@ -9,6 +9,7 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(sensor_mgr, CONFIG_LOG_DEFAULT_LEVEL);
@@ -146,4 +147,60 @@ void sensor_manager_get_metrics(sensor_metrics_t *metrics)
         *metrics = s_metrics;
         k_mutex_unlock(&s_sensor_mutex);
     }
+}
+
+int sensor_manager_suspend_buses(void)
+{
+    int rc_i2c = 0, rc_spi = 0;
+
+    /* Suspend I2C bus to save power */
+    if (device_is_ready(s_i2c_dev)) {
+        rc_i2c = pm_device_action_run(s_i2c_dev, PM_DEVICE_ACTION_SUSPEND);
+        if (rc_i2c != 0 && rc_i2c != -EALREADY) {
+            LOG_WRN("Failed to suspend I2C bus (rc=%d)", rc_i2c);
+        } else {
+            LOG_DBG("I2C bus suspended");
+        }
+    }
+
+    /* Suspend SPI bus to save power */
+    if (device_is_ready(s_spi_dev)) {
+        rc_spi = pm_device_action_run(s_spi_dev, PM_DEVICE_ACTION_SUSPEND);
+        if (rc_spi != 0 && rc_spi != -EALREADY) {
+            LOG_WRN("Failed to suspend SPI bus (rc=%d)", rc_spi);
+        } else {
+            LOG_DBG("SPI bus suspended");
+        }
+    }
+
+    return (rc_i2c == 0 || rc_i2c == -EALREADY) &&
+           (rc_spi == 0 || rc_spi == -EALREADY) ? 0 : -EIO;
+}
+
+int sensor_manager_resume_buses(void)
+{
+    int rc_i2c = 0, rc_spi = 0;
+
+    /* Resume I2C bus for sensor transactions */
+    if (device_is_ready(s_i2c_dev)) {
+        rc_i2c = pm_device_action_run(s_i2c_dev, PM_DEVICE_ACTION_RESUME);
+        if (rc_i2c != 0 && rc_i2c != -EALREADY) {
+            LOG_WRN("Failed to resume I2C bus (rc=%d)", rc_i2c);
+        } else {
+            LOG_DBG("I2C bus resumed");
+        }
+    }
+
+    /* Resume SPI bus for sensor transactions */
+    if (device_is_ready(s_spi_dev)) {
+        rc_spi = pm_device_action_run(s_spi_dev, PM_DEVICE_ACTION_RESUME);
+        if (rc_spi != 0 && rc_spi != -EALREADY) {
+            LOG_WRN("Failed to resume SPI bus (rc=%d)", rc_spi);
+        } else {
+            LOG_DBG("SPI bus resumed");
+        }
+    }
+
+    return (rc_i2c == 0 || rc_i2c == -EALREADY) &&
+           (rc_spi == 0 || rc_spi == -EALREADY) ? 0 : -EIO;
 }
