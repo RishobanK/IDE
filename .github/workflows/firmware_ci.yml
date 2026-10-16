@@ -2,12 +2,12 @@ name: Firmware CI & Automated Build
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
-  native-tests:
+  unit-tests:
     name: Native Host Unit Tests
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential
 
-      - name: Run Ring Buffer Unit Tests
+      - name: Build and Run Sensor Queue Unit Tests
         run: |
           gcc -Iinclude tests/test_sensor_ringbuf.c -o test_ringbuf
           ./test_ringbuf
@@ -33,28 +33,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build nRF52840 Firmware
+      - name: Configure Git Safe Directory & Build Firmware
         run: |
-          git config --global --add safe.directory '*'
-          
-          # Locate pre-installed NCS SDK workspace inside Docker container
-          NCS_DIR=$(find / -name ".west" 2>/dev/null | head -n 1 | xargs dirname)
-          
-          if [ -n "$NCS_DIR" ]; then
-            echo "Building within NCS workspace at: $NCS_DIR"
-            cd "$NCS_DIR"
-            west build -b nrf52840dk_nrf52840 -s "$GITHUB_WORKSPACE/app" -d "$GITHUB_WORKSPACE/build"
-          else
-            echo "Fallback: Building with CMake..."
-            cmake -B "$GITHUB_WORKSPACE/build" -S "$GITHUB_WORKSPACE/app" -GNinja -DBOARD=nrf52840dk_nrf52840
-            ninja -C "$GITHUB_WORKSPACE/build"
-          fi
+          git config --global --add safe.directory /github/workspace
+          git config --global --add safe.directory "*"
+          west build -b custom_sensor_node app -d build -- -DBOARD_ROOT=$GITHUB_WORKSPACE
 
       - name: Archive Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nrf52840-firmware-binaries
+          name: custom_sensor_node_firmware
           path: |
+            build/zephyr/zephyr.elf
             build/zephyr/zephyr.hex
             build/zephyr/zephyr.bin
-            build/zephyr/zephyr.stat
