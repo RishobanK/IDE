@@ -1,0 +1,21 @@
+# ==============================================================================
+# Kconfig.board — custom_sensor_node board selection entry
+#
+# Registers this board as a selectable BOARD target within the Zephyr build
+# system. "west boards" and menuconfig will display this entry.
+# ==============================================================================
+
+config BOARD_CUSTOM_SENSOR_NODE
+	bool "Custom nRF52840 BLE Sensor Node"
+	depends on SOC_NRF52840_QIAA
+	select BOARD_CUSTOM_SENSOR_NODE
+	help
+	  Custom embedded board based on the Nordic Semiconductor nRF52840 SoC
+	  (ARM Cortex-M4F @ 64 MHz, 1 MB Flash, 256 KB SRAM).
+
+	  Configured with:
+	    - Bosch BME280 environmental sensor on I2C1 (SDA=P0.26, SCL=P0.27)
+	    - ST LSM6DSO 6-DoF IMU on SPI1 (SCK=P0.31, MOSI=P0.30, MISO=P0.29, CS=P0.17)
+	    - Segger RTT as primary debug/logging console (no UART)
+	    - MCUboot dual-slot OTA flash partition layout
+	    - Status LEDs on P0.13 (heartbeat) and P0.14 (BLE activity)

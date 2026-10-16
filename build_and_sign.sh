@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BOARD="${1:-nrf52840dk_nrf52840}"
+BOARD="${1:-custom_sensor_node}"
 BUILD_DIR="build"
 APP_DIR="app"
 VERSION="${2:-1.0.0}"

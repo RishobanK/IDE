@@ -1,0 +1,165 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Device Tree Source: custom_sensor_node board
+ *
+ * Custom nRF52840-based embedded sensor node for the BLE Sensor Hub project.
+ * Hardware mapping:
+ *   - I2C1  (TWIM1): SDA=P0.26, SCL=P0.27 @ 400 kHz  → Bosch BME280 @ 0x76
+ *   - SPI1  (SPIM1): SCK=P0.31, MOSI=P0.30, MISO=P0.29, CS=P0.17 → ST LSM6DSO
+ *   - Logging backend: Segger RTT (no UART console)
+ *   - Status LEDs: P0.13 (heartbeat), P0.14 (BLE link)
+ *   - Button:      P0.11 (active-low, user input)
+ */
+
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+#include "custom_sensor_node-pinctrl.dtsi"
+
+/ {
+	model = "Custom nRF52840 BLE Sensor Node";
+	compatible = "rishobank,custom-sensor-node";
+
+	chosen {
+		zephyr,sram    = &sram0;
+		zephyr,flash   = &flash0;
+		zephyr,code-partition = &slot0_partition;
+		/*
+		 * No zephyr,console or zephyr,uart-console here.
+		 * RTT is configured as the sole logging backend via Kconfig.
+		 */
+	};
+
+	aliases {
+		sensor-bme280  = &bme280;
+		sensor-lsm6dso = &lsm6dso;
+		led-status     = &led0;
+		led-ble        = &led1;
+		sw-user        = &button0;
+		watchdog0      = &wdt0;
+	};
+
+	/* ---- Status LEDs ---- */
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led_0 {
+			gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+			label = "Heartbeat LED";
+		};
+
+		led1: led_1 {
+			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+			label = "BLE Link LED";
+		};
+	};
+
+	/* ---- User Pushbutton ---- */
+	buttons {
+		compatible = "gpio-keys";
+
+		button0: button_0 {
+			gpios = <&gpio0 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "User Button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+
+	/* ---- Flash Partition Table (MCUboot compatible) ---- */
+	&flash0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* MCUboot bootloader region: 48 KB */
+			boot_partition: partition@0 {
+				label = "mcuboot";
+				reg = <0x00000000 DT_SIZE_K(48)>;
+			};
+
+			/* Primary application slot: 440 KB */
+			slot0_partition: partition@c000 {
+				label = "image-0";
+				reg = <0x0000c000 DT_SIZE_K(440)>;
+			};
+
+			/* Secondary / OTA candidate slot: 440 KB */
+			slot1_partition: partition@7a000 {
+				label = "image-1";
+				reg = <0x0007a000 DT_SIZE_K(440)>;
+			};
+
+			/* MCUboot sector-swap scratch area: 32 KB */
+			scratch_partition: partition@e8000 {
+				label = "image-scratch";
+				reg = <0x000e8000 DT_SIZE_K(32)>;
+			};
+
+			/* Non-Volatile Storage (BLE bonding keys, NVS config): 64 KB */
+			storage_partition: partition@f0000 {
+				label = "storage";
+				reg = <0x000f0000 DT_SIZE_K(64)>;
+			};
+		};
+	};
+};
+
+/* ============================================================
+ * I2C1 (Nordic TWIM1) — Bosch BME280 Environmental Sensor
+ * SDA: P0.26  |  SCL: P0.27  |  Speed: 400 kHz
+ * ============================================================ */
+&i2c1 {
+	compatible = "nordic,nrf-twim";
+	status = "okay";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-1 = <&i2c1_sleep>;
+	pinctrl-names = "default", "sleep";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	bme280: bme280@76 {
+		compatible = "bosch,bme280";
+		reg = <0x76>;
+		status = "okay";
+	};
+};
+
+/* ============================================================
+ * SPI1 (Nordic SPIM1) — ST LSM6DSO 6-DoF IMU
+ * SCK: P0.31  |  MOSI: P0.30  |  MISO: P0.29  |  CS: P0.17
+ * ============================================================ */
+&spi1 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-1 = <&spi1_sleep>;
+	pinctrl-names = "default", "sleep";
+	cs-gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
+
+	lsm6dso: lsm6dso@0 {
+		compatible = "st,lsm6dso";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		irq-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+/* ---- Watchdog ---- */
+&wdt0 {
+	status = "okay";
+};
+
+/* ---- GPIO controllers required for LEDs, button, CS pin ---- */
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+/* ---- GPIOTE for interrupt-driven sensor IRQ line ---- */
+&gpiote {
+	status = "okay";
+};

@@ -1,0 +1,53 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Pin Control Definitions: custom_sensor_node
+ *
+ * Defines pin mux states (default active + low-power sleep) for:
+ *   - TWIM1 (I2C1):  SDA=P0.26, SCL=P0.27
+ *   - SPIM1 (SPI1):  SCK=P0.31, MOSI=P0.30, MISO=P0.29
+ */
+
+&pinctrl {
+
+	/* ---- I2C1 (TWIM1) Pin States ---- */
+	i2c1_default: i2c1_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,
+			        <NRF_PSEL(TWIM_SCL, 0, 27)>;
+			bias-pull-up;
+			drive-open-drain;
+		};
+	};
+
+	i2c1_sleep: i2c1_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,
+			        <NRF_PSEL(TWIM_SCL, 0, 27)>;
+			low-power-enable;
+		};
+	};
+
+	/* ---- SPI1 (SPIM1) Pin States ---- */
+	spi1_default: spi1_default {
+		group1 {
+			/* SCK and MOSI are outputs: drive strong */
+			psels = <NRF_PSEL(SPIM_SCK,  0, 31)>,
+			        <NRF_PSEL(SPIM_MOSI, 0, 30)>;
+		};
+		group2 {
+			/* MISO is an input: no pull required */
+			psels = <NRF_PSEL(SPIM_MISO, 0, 29)>;
+			bias-disable;
+		};
+	};
+
+	spi1_sleep: spi1_sleep {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK,  0, 31)>,
+			        <NRF_PSEL(SPIM_MOSI, 0, 30)>,
+			        <NRF_PSEL(SPIM_MISO, 0, 29)>;
+			low-power-enable;
+		};
+	};
+};

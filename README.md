@@ -111,54 +111,102 @@ Target evaluation platform: **Nordic Semiconductor nRF52840-DK (PCA10056)**.
 
 ---
 
-## 4. Build & Execution Instructions
+## 4. Custom Board Support Package (BSP)
+
+This repository ships a complete Zephyr-compatible BSP under `boards/arm/custom_sensor_node/` targeting custom production hardware based on the nRF52840 SoC.
+
+```
+boards/arm/custom_sensor_node/
+├── custom_sensor_node.dts           # Full Device Tree: I2C1, SPI1, flash partitions, LEDs
+├── custom_sensor_node-pinctrl.dtsi  # Pin mux states (default + low-power sleep)
+├── custom_sensor_node_defconfig     # Minimum Kconfig fragment (RTT logging, no UART)
+├── Kconfig.board                    # Board selection entry shown in west boards
+├── Kconfig.defconfig                # Auto-applied defaults when board is selected
+├── board.cmake                      # west flash/debug → Segger J-Link (SWD @ 4 MHz)
+└── custom_sensor_node.yaml          # Board metadata (RAM, Flash, supported features)
+```
+
+### Hardware Pin Mapping (Board DTS)
+
+| Bus | Signal | SoC Pin | Electrical Details |
+|---|---|---|---|
+| I2C1 (TWIM1) | SDA | **P0.26** | Open-drain, 400 kHz, internal pull-up |
+| I2C1 (TWIM1) | SCL | **P0.27** | Open-drain, 400 kHz, internal pull-up |
+| SPI1 (SPIM1) | SCK | **P0.31** | Push-pull output, 8 MHz max |
+| SPI1 (SPIM1) | MOSI | **P0.30** | Push-pull output |
+| SPI1 (SPIM1) | MISO | **P0.29** | Floating input |
+| SPI1 (SPIM1) | CS (LSM6DSO) | **P0.17** | Active-low GPIO CS |
+| GPIO | LSM6DSO INT | **P0.19** | Active-high data-ready interrupt |
+| GPIO | LED Heartbeat | **P0.13** | Active-low, 5 s toggle |
+| GPIO | LED BLE Active | **P0.14** | Active-low, set on connect |
+| GPIO | User Button | **P0.11** | Pull-up, active-low |
+
+> **Logging**: RTT is the exclusive debug backend — `CONFIG_UART_CONSOLE=n`. All `LOG_INF/DBG/WRN/ERR` output is routed to J-Link RTT with zero UART pin dependency.
+
+---
+
+## 5. Build & Execution Instructions
 
 ### Prerequisites
 - [nRF Connect SDK v2.6.x](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/installation.html) or Zephyr RTOS v3.5+
 - `west` meta-tool (`pip install west`)
 - GNU Arm Embedded Toolchain (`arm-zephyr-eabi`)
 - `imgtool` Python utility (`pip install imgtool`)
-- `nrf-command-line-tools` (for `nrfjprog`)
+- Segger J-Link Software (`nrfjprog` or `JLinkExe`)
 
-### Method 1: Building with `west` (Recommended)
+### Method 1: Custom Board — `west build` (Primary Target)
 
-1. **Initialize the workspace** (if not already done):
+1. **Initialize the workspace**:
    ```bash
    west init -l app
    west update
    ```
 
-2. **Compile the application**:
+2. **Build for the custom production board**:
    ```bash
-   west build -b nrf52840dk_nrf52840 app -d build
+   west build -b custom_sensor_node app -d build
    ```
+   The `app/CMakeLists.txt` sets `BOARD_ROOT` to the workspace root, so
+   Zephyr automatically discovers `boards/arm/custom_sensor_node/`.
 
-3. **Flash the board via J-Link**:
+3. **Flash via Segger J-Link** (configured in `board.cmake`):
    ```bash
    west flash -d build
    ```
 
-4. **Monitor debug output via SEGGER RTT**:
+4. **Monitor RTT debug output**:
    ```bash
    JLinkRTTViewer --device NRF52840_XXAA --interface SWD --speed 4000
    ```
 
-### Method 2: Building via Native `cmake`
+### Method 2: nRF52840-DK Fallback (Development Kit)
+
+If you don't have the custom PCB yet, use the Nordic dev kit with the `app.overlay` providing compatible pin assignments:
+
+```bash
+west build -b nrf52840dk_nrf52840 app -d build
+west flash -d build
+```
+
+### Method 3: Native `cmake` (without west)
 
 ```bash
 mkdir build && cd build
-cmake -GNinja -DBOARD=nrf52840dk_nrf52840 ../app
+cmake -GNinja \
+  -DBOARD=custom_sensor_node \
+  -DBOARD_ROOT=$(realpath ..) \
+  ../app
 ninja
 ```
 
-### Method 3: Automated Signing & Packaging
+### Method 4: Automated Signing & OTA Package
 
-To generate an MCUboot-compliant, signed secondary-slot upgrade binary:
+To produce an MCUboot-signed binary for secondary-slot upload:
 ```bash
 chmod +x build_and_sign.sh
-./build_and_sign.sh nrf52840dk_nrf52840 1.0.0
+./build_and_sign.sh custom_sensor_node 1.0.0
 ```
-This produces `build/zephyr/zephyr.signed.bin` ready for OTA transfer.
+Output: `build/zephyr/zephyr.signed.bin` — ready for OTA transfer.
 
 ---
 

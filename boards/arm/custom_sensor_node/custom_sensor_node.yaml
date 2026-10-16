@@ -1,0 +1,20 @@
+identifier: custom_sensor_node
+name: Custom nRF52840 BLE Sensor Node
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 256
+flash: 1024
+vendor: rishobank
+supported:
+  - bluetooth
+  - i2c
+  - spi
+  - gpio
+  - watchdog
+  - counter
+  - pwm
+  - adc
+  - flash

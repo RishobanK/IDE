@@ -1,0 +1,65 @@
+# ==============================================================================
+# Kconfig.defconfig — custom_sensor_node board defaults
+#
+# These settings are auto-applied when the board is selected.
+# They extend (not override) prj.conf values.
+# ==============================================================================
+
+if BOARD_CUSTOM_SENSOR_NODE
+
+config BOARD
+	default "custom_sensor_node"
+
+# ---- SoC family ----
+config SOC_SERIES_NRF52X
+	default y
+
+config SOC_NRF52840_QIAA
+	default y
+
+# ---- RTT as exclusive logging backend ----
+# Disables the UART shell/console and routes all LOG_* output to RTT.
+config LOG
+	default y
+
+config USE_SEGGER_RTT
+	default y
+
+config LOG_BACKEND_RTT
+	default y
+
+config LOG_BACKEND_UART
+	default n
+
+# ---- Disable UART0 console output (RTT-only) ----
+config UART_CONSOLE
+	default n
+
+config SERIAL
+	default n
+
+# ---- Enable Nordic hardware-specific drivers required by the sensor busses ----
+config NRFX_TWIM1
+	default y
+
+config NRFX_SPIM1
+	default y
+
+config PINCTRL
+	default y
+
+# ---- Watchdog ----
+config WATCHDOG
+	default y
+
+config WDT_DISABLE_AT_BOOT
+	default n
+
+# ---- Power Management ----
+config PM
+	default y
+
+config PM_DEVICE
+	default y
+
+endif # BOARD_CUSTOM_SENSOR_NODE

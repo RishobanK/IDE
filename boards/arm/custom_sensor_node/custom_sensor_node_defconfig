@@ -1,0 +1,58 @@
+# ==============================================================================
+# custom_sensor_node_defconfig — Kconfig fragment for default board config
+#
+# Applied automatically by CMake when BOARD=custom_sensor_node.
+# These represent the minimum viable configuration for the hardware to boot.
+# Application prj.conf values layer on top and may extend these.
+# ==============================================================================
+
+# ----- SoC Selection -----
+CONFIG_SOC_SERIES_NRF52X=y
+CONFIG_SOC_NRF52840_QIAA=y
+CONFIG_BOARD_CUSTOM_SENSOR_NODE=y
+
+# ----- ARM Cortex-M4F CPU Features -----
+CONFIG_CPU_HAS_FPU=y
+CONFIG_FPU=y
+CONFIG_FPU_SHARING=y
+
+# ----- Clock -----
+CONFIG_CLOCK_CONTROL=y
+CONFIG_CLOCK_CONTROL_NRF=y
+
+# ----- Segger RTT as Primary Console (no UART) -----
+CONFIG_LOG=y
+CONFIG_LOG_BACKEND_RTT=y
+CONFIG_USE_SEGGER_RTT=y
+CONFIG_LOG_BACKEND_UART=n
+CONFIG_UART_CONSOLE=n
+
+# ----- GPIO for LEDs, Button, CS Pin -----
+CONFIG_GPIO=y
+
+# ----- I2C1 (TWIM1) for BME280 -----
+CONFIG_I2C=y
+CONFIG_NRFX_TWIM1=y
+
+# ----- SPI1 (SPIM1) for LSM6DSO -----
+CONFIG_SPI=y
+CONFIG_NRFX_SPIM1=y
+
+# ----- Pin Control (required for pinctrl.dtsi) -----
+CONFIG_PINCTRL=y
+
+# ----- Flash Access for MCUboot -----
+CONFIG_FLASH=y
+CONFIG_FLASH_PAGE_LAYOUT=y
+CONFIG_FLASH_MAP=y
+
+# ----- Watchdog Timer -----
+CONFIG_WATCHDOG=y
+
+# ----- Power Management -----
+CONFIG_PM=y
+CONFIG_PM_DEVICE=y
+
+# ----- Minimum Stack / Heap required to boot -----
+CONFIG_MAIN_STACK_SIZE=2048
+CONFIG_HEAP_MEM_POOL_SIZE=4096

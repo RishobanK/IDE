@@ -7,9 +7,11 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/watchdog.h>
 #include "sensor_manager.h"
 #include "ble_service.h"
 #include "ota_manager.h"
+#include "crash_logger.h"
 
 LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -33,6 +35,10 @@ static struct k_thread supervisor_thread_data;
 
 /* Hardware Status LED (nRF52840-DK LED1 on P0.13) */
 static const struct gpio_dt_spec s_led0 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led_status), gpios, {0});
+
+/* Hardware watchdog device (10-second timeout, 5-second feed interval) */
+static const struct device *s_watchdog_dev;
+static int s_watchdog_channel_id;
 
 /**
  * @brief Thread 1: High-priority periodic sensor acquisition loop.
@@ -113,6 +119,14 @@ static void supervisor_thread_entry(void *p1, void *p2, void *p3)
             gpio_pin_toggle_dt(&s_led0);
         }
 
+        /* Feed the hardware watchdog to prevent timeout reset */
+        if (s_watchdog_dev && device_is_ready(s_watchdog_dev)) {
+            int rc = wdt_feed(s_watchdog_dev, s_watchdog_channel_id);
+            if (rc != 0) {
+                LOG_ERR("Watchdog feed failed (rc=%d)", rc);
+            }
+        }
+
         /* Check thread stack watermarks for safety */
         size_t sensor_unused = 0, ble_unused = 0;
         k_thread_stack_space_get(&sensor_thread_data, &sensor_unused);
@@ -137,13 +151,46 @@ int main(void)
     LOG_INF("  Firmware: %s | Built: %s %s", FW_BUILD_STRING, __DATE__, __TIME__);
     LOG_INF("==================================================");
 
+    /* 0. Initialize Crash Logger and Record Reset Reason */
+    int rc = crash_logger_init();
+    if (rc == 0) {
+        crash_logger_record_reset_reason();
+        crash_logger_dump_logs();
+    } else {
+        LOG_ERR("Crash logger initialization failed (rc=%d)", rc);
+    }
+
+    /* Initialize Hardware Watchdog (10-second timeout) */
+    s_watchdog_dev = DEVICE_DT_GET(DT_NODELABEL(wdt0));
+    if (!device_is_ready(s_watchdog_dev)) {
+        LOG_ERR("Watchdog device not ready");
+    } else {
+        struct wdt_timeout_cfg wdt_config = {
+            .window.min = 0U,
+            .window.max = 10000U, /* 10 seconds */
+            .callback = NULL,
+            .flags = WDT_FLAG_RESET_SOC,
+        };
+        s_watchdog_channel_id = wdt_install_timeout(s_watchdog_dev, &wdt_config);
+        if (s_watchdog_channel_id < 0) {
+            LOG_ERR("Watchdog install failed (rc=%d)", s_watchdog_channel_id);
+        } else {
+            rc = wdt_setup(s_watchdog_dev, WDT_OPT_PAUSE_HALTED_BY_DBG);
+            if (rc == 0) {
+                LOG_INF("Hardware watchdog enabled: 10s timeout, 5s feed interval");
+            } else {
+                LOG_ERR("Watchdog setup failed (rc=%d)", rc);
+            }
+        }
+    }
+
     /* Initialize Onboard Status LED */
     if (s_led0.port && device_is_ready(s_led0.port)) {
         gpio_pin_configure_dt(&s_led0, GPIO_OUTPUT_ACTIVE);
     }
 
     /* 1. Initialize Sensor Subsystem */
-    int rc = sensor_manager_init();
+    rc = sensor_manager_init();
     if (rc < 0) {
         LOG_ERR("Fatal: Sensor subsystem initialization failed (rc=%d)", rc);
     }
