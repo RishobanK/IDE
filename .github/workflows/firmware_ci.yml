@@ -28,16 +28,15 @@ jobs:
     name: Zephyr / nRF Connect SDK Build
     runs-on: ubuntu-latest
     container:
-      image: nordicplayground/nrfconnect-sdk:v2.6-branch
+      image: nordicsemi/nrfconnect-sdk:v2.6-branch
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Configure Git Safe Directory & Build Firmware
         run: |
-          git config --global --add safe.directory /github/workspace
           git config --global --add safe.directory "*"
-          west build -b custom_sensor_node app -d build -- -DBOARD_ROOT=$GITHUB_WORKSPACE
+          west build -b custom_sensor_node -s app -d build -- -DBOARD_ROOT=$GITHUB_WORKSPACE
 
       - name: Archive Firmware Artifacts
         uses: actions/upload-artifact@v4
