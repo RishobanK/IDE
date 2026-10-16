@@ -28,7 +28,7 @@ jobs:
     name: Zephyr / nRF Connect SDK Build
     runs-on: ubuntu-latest
     container:
-      image: nordicsemi/nrfconnect-sdk:v2.6-branch
+      image: nordicplayground/nrfconnect-sdk:v2.6-branch
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

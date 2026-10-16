@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(crash_logger, CONFIG_LOG_DEFAULT_LEVEL);
 #include <zephyr/fs/nvs.h>
 #include <zephyr/drivers/hwinfo.h>
 #include <zephyr/drivers/flash.h>
+#include <zephyr/storage/flash_map.h>
 #include <stdint.h>
 #include <string.h>
 #include "crash_logger.h"
@@ -203,14 +204,30 @@ static bool is_abnormal_reset(uint32_t raw_cause)
 int crash_logger_init(void)
 {
 	int rc;
+	struct flash_pages_info info;
 
 	/* Initialize NVS subsystem on storage_partition. */
 	k_mutex_init(&nvs_lock);
 
-	nvs_fs.offset = 0;
+	/* Get the flash device from the storage_partition devicetree node */
+	nvs_fs.flash_device = FIXED_PARTITION_DEVICE(storage_partition);
+	if (!device_is_ready(nvs_fs.flash_device)) {
+		LOG_ERR("crash_logger: Flash device %s not ready",
+			nvs_fs.flash_device->name);
+		return -ENODEV;
+	}
+
+	nvs_fs.offset = FIXED_PARTITION_OFFSET(storage_partition);
 	nvs_fs.sector_size = NVS_SECTOR_SIZE;
 	/* The storage_partition is 64 KB, so 64 KB / 4096 B = 16 sectors. */
 	nvs_fs.sector_count = 16;
+
+	/* Get the flash page info and verify sector size */
+	rc = flash_get_page_info_by_offs(nvs_fs.flash_device, nvs_fs.offset, &info);
+	if (rc == 0) {
+		nvs_fs.sector_size = info.size;
+		nvs_fs.sector_count = FIXED_PARTITION_SIZE(storage_partition) / info.size;
+	}
 
 	rc = nvs_lock_open();
 	if (rc != 0) {
