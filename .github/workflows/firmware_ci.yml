@@ -36,4 +36,9 @@ jobs:
 
       - name: Run Cppcheck Code Audit
         run: |
-          cppcheck --enable=warning,performance,portability --inline-suppr --error-exitcode=1 -I include app/src/
+          cppcheck --enable=warning,performance,portability \
+                   --inline-suppr \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unmatchedSuppression \
+                   --error-exitcode=1 \
+                   -I include app/src/
