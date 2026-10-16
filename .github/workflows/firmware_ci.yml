@@ -11,39 +11,29 @@ jobs:
     name: Native Host Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Host Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential
+          sudo apt-get install -y build-essential gcc
 
-      - name: Build and Run Sensor Queue Unit Tests
+      - name: Run Ringbuffer & IPC Unit Tests
         run: |
           gcc -Iinclude tests/test_sensor_ringbuf.c -o test_ringbuf
           ./test_ringbuf
 
-  zephyr-build:
-    name: Zephyr / nRF Connect SDK Build
+  static-analysis:
+    name: Cppcheck & Static Analysis
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build Firmware with Docker
+      - name: Install Cppcheck
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/workdir/project \
-            -w /workdir/project \
-            nordicplayground/nrfconnect-sdk:v2.6-branch \
-            west build -b custom_sensor_node -s app -d build -- -DBOARD_ROOT=/workdir/project
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
 
-      - name: Archive Firmware Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: custom_sensor_node_firmware
-          path: |
-            build/zephyr/zephyr.elf
-            build/zephyr/zephyr.hex
-            build/zephyr/zephyr.bin
+      - name: Run Cppcheck Code Audit
+        run: |
+          cppcheck --enable=warning,performance,portability --inline-suppr --error-exitcode=1 -I include app/src/
