@@ -20,6 +20,7 @@ target_sources(app PRIVATE
     src/ble_service.c
     src/ota_manager.c
     src/crash_logger.c
+    src/can_bridge.c
     ../drivers/custom_sensor_bme280.c
 )
 

@@ -12,6 +12,7 @@
 #include "ble_service.h"
 #include "ota_manager.h"
 #include "crash_logger.h"
+#include "can_bridge.h"
 
 LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -66,6 +67,9 @@ static void sensor_thread_entry(void *p1, void *p2, void *p3)
                     sample.pressure_pa,
                     sample.humidity_centi_pct / 100,
                     sample.humidity_centi_pct % 100);
+
+            /* Publish telemetry to CAN bus */
+            can_bridge_publish_telemetry(&sample);
         } else {
             LOG_WRN("Sensor sample acquisition fault (rc=%d)", rc);
         }
@@ -214,7 +218,13 @@ int main(void)
         LOG_WRN("OTA manager warning (rc=%d)", rc);
     }
 
-    /* 4. Spawn Real-Time Operating System Threads */
+    /* 4. Initialize CAN Bus Telemetry Bridge */
+    rc = can_bridge_init();
+    if (rc < 0) {
+        LOG_WRN("CAN bridge initialization failed (rc=%d), continuing without CAN", rc);
+    }
+
+    /* 5. Spawn Real-Time Operating System Threads */
     k_thread_create(&sensor_thread_data, sensor_stack,
                     K_THREAD_STACK_SIZEOF(sensor_stack),
                     sensor_thread_entry, NULL, NULL, NULL,
